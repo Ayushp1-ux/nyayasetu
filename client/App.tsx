@@ -1,0 +1,69 @@
+import "./global.css";
+import { Toaster } from "@/components/ui/toaster";
+import { createRoot } from "react-dom/client";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Signup from "./pages/Signup";
+import Login from "./pages/Login";
+import AskQuestion from "./pages/AskQuestion";
+import Navbar from "./components/ui/Navbar";
+import MyQuestions from "./pages/MyQuestion";
+import LawyerDashboard from "./pages/LawyerDashboard";
+import PrivateRoute from "./components/ui/PrivateRoute";
+import AIAssistant from "./pages/AIAssistant";
+import CourtNewsPage from "./pages/CourtNewsPage";
+import CaseSearchPage from "./pages/CaseSearchPage";
+import SavedNews from "./pages/SavedNews";
+import LawyerDirectory from "./pages/LawyerDirectory";
+import ChatWithLawyer from "./pages/ChatWithLawyer";
+import LawyerChatInbox from "./pages/LawyerChatInbox";
+import MyChats from "./pages/MyChats";
+import EditProfile from "./pages/EditProfile"; // 👈 ADD THIS
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/my-questions" element={<MyQuestions />} />
+          <Route path="/ask-question" element={<AskQuestion />} />
+          <Route
+            path="/lawyer"
+            element={
+              <PrivateRoute>
+                <LawyerDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/ai-assistant" element={<AIAssistant />} />
+          <Route path="/court-news" element={<CourtNewsPage />} />
+          <Route path="/case-search" element={<CaseSearchPage />} />
+          <Route path="/saved-news" element={<SavedNews />} />
+          <Route path="/lawyers" element={<LawyerDirectory />} />
+          <Route path="/chat/:lawyerId" element={<ChatWithLawyer />} />
+          <Route path="/lawyer-chats" element={<PrivateRoute><LawyerChatInbox /></PrivateRoute>} />
+          <Route path="/my-chats" element={<MyChats />} />
+          <Route path="/edit-profile" element={<EditProfile />} /> {/* 👈 ADD THIS */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;
+
+createRoot(document.getElementById("root")!).render(<App />);
