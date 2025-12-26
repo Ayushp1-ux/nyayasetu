@@ -92,42 +92,14 @@ export default function CourtNews() {
       setLoading(true);
       setError(null);
 
-      const apiKey = "afd017fb400f4bec9e317a0ec7f928d8";
+      const resp = await fetch("/api/court-news");
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
 
-      // 1) India‑focused legal news
-      const indiaUrl = new URL("https://newsapi.org/v2/everything");
-      indiaUrl.searchParams.set(
-        "q",
-        "(India OR Indian OR \"Supreme Court of India\" OR \"SC bench\" OR \"High Court\" OR PIL OR Delhi OR Mumbai OR Bengaluru OR Kolkata OR Chennai) " +
-          "AND (court OR judge OR judiciary OR legal OR verdict OR judgement OR petition OR trial OR case OR FIR OR chargesheet OR bail OR arrest)"
-      );
-      indiaUrl.searchParams.set("language", "en");
-      indiaUrl.searchParams.set("sortBy", "publishedAt");
-      indiaUrl.searchParams.set("pageSize", "40");
-      indiaUrl.searchParams.set("apiKey", apiKey);
-
-      // 2) Global legal / courts news
-      const globalUrl = new URL("https://newsapi.org/v2/everything");
-      globalUrl.searchParams.set(
-        "q",
-        "(\"supreme court\" OR \"high court\" OR constitutional court OR judiciary OR lawsuit OR litigation OR indictment OR verdict OR ruling OR judgement) " +
-          "AND (law OR legal OR court)"
-      );
-      globalUrl.searchParams.set("language", "en");
-      globalUrl.searchParams.set("sortBy", "publishedAt");
-      globalUrl.searchParams.set("pageSize", "40");
-      globalUrl.searchParams.set("apiKey", apiKey);
-
-      const [indiaResp, globalResp] = await Promise.all([
-        fetch(indiaUrl.toString()),
-        fetch(globalUrl.toString()),
-      ]);
-
-      if (!indiaResp.ok) throw new Error(`India HTTP ${indiaResp.status}`);
-      if (!globalResp.ok) throw new Error(`Global HTTP ${globalResp.status}`);
-
-      const indiaJson = await indiaResp.json();
-      const globalJson = await globalResp.json();
+      const data = await resp.json();
+      const indiaJson = data.india;
+      const globalJson = data.global;
 
       const mapArticles = (articles: any[]): NewsItem[] =>
         (articles || []).map((a: any, idx: number) => {
@@ -136,7 +108,7 @@ export default function CourtNews() {
           return {
             id:
               a.url ||
-              String(idx) + Math.random().toString(36).slice(2), // avoid collisions
+              String(idx) + Math.random().toString(36).slice(2),
             title,
             content,
             date: a.publishedAt ?? new Date().toISOString(),
@@ -145,10 +117,9 @@ export default function CourtNews() {
           };
         });
 
-      const indiaNews = mapArticles(indiaJson.articles || []);
-      const globalNews = mapArticles(globalJson.articles || []);
+      const indiaNews = mapArticles(indiaJson?.articles || []);
+      const globalNews = mapArticles(globalJson?.articles || []);
 
-      // India first, then global, de‑duplicate by id
       const combinedMap = new Map<string, NewsItem>();
       for (const item of [...indiaNews, ...globalNews]) {
         if (!combinedMap.has(item.id)) {
@@ -171,12 +142,10 @@ export default function CourtNews() {
   useEffect(() => {
     let data = [...allNews];
 
-    // Tag filter
     if (tagFilter !== "all") {
       data = data.filter((item) => item.tag === tagFilter);
     }
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(
