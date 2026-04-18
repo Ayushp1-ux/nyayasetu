@@ -10,3 +10,16 @@
 export interface DemoResponse {
   message: string;
 }
+
+export interface LegalNoticeRequest {
+  userName: string;
+  opponentName: string;
+  issueType: string;
+  date: string;
+  location: string;
+  description: string;
+}
+
+export interface LegalNoticeResponse {
+  content: string;
+}

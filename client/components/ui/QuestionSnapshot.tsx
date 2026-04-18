@@ -1,62 +1,57 @@
-// client/components/QuestionSnapshot.tsx
-import React from "react";
+import { Calendar, User, FileText } from "lucide-react";
 
-export type QuestionSnapshotData = {
-  id?: string;
-  title: string | null;
-  description: string | null;
-  category: string | null;
-  contact_method?: string | null;
-  urgency?: string | null;
+export interface QuestionSnapshotData {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  created_at: string;
   file_url?: string | null;
-  created_at?: string | null;
-};
+  user_id?: string;
+}
 
-export const QuestionSnapshot: React.FC<{ question: QuestionSnapshotData }> = ({
-  question,
-}) => {
-  const { title, description, category, contact_method, urgency, created_at } =
-    question;
+interface QuestionSnapshotProps {
+  question: QuestionSnapshotData;
+}
+
+export function QuestionSnapshot({ question }: QuestionSnapshotProps) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
 
   return (
-    <div className="rounded-xl bg-slate-800/80 border border-slate-700 p-3 mb-2">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold text-slate-50 line-clamp-1">
-          {title && title.trim().length > 0 ? title : "Untitled issue"}
-        </h3>
-        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-300 border border-blue-500/40">
-          {category && category.trim().length > 0 ? category : "General"}
-        </span>
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-semibold text-gray-900 dark:text-white text-sm leading-tight">
+          {truncateText(question.title, 60)}
+        </h4>
+        {question.file_url && (
+          <FileText className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+        )}
       </div>
-
-      {/* Short description */}
-      {description && (
-        <p className="mt-1 text-xs text-slate-300 line-clamp-2">
-          {description}
-        </p>
-      )}
-
-      {/* Chips */}
-      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-300">
-        {contact_method && (
-          <span className="px-2 py-0.5 rounded-full bg-slate-900/60 border border-slate-600">
-            Contact: {contact_method}
-          </span>
-        )}
-
-        {urgency && (
-          <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/40 text-red-300">
-            Urgency: {urgency}
-          </span>
-        )}
-
-        {created_at && (
-          <span className="px-2 py-0.5 rounded-full bg-slate-900/60 border border-slate-600">
-            {new Date(created_at).toLocaleDateString()}
-          </span>
-        )}
+      
+      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+        {truncateText(question.description, 120)}
+      </p>
+      
+      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
+        <div className="flex items-center gap-1">
+          <Calendar className="h-3 w-3" />
+          <span>{formatDate(question.created_at)}</span>
+        </div>
+        <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+          {question.category}
+        </span>
       </div>
     </div>
   );
-};
+}

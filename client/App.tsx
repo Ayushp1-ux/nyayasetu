@@ -24,6 +24,10 @@ import ChatWithLawyer from "./pages/ChatWithLawyer";
 import LawyerChatInbox from "./pages/LawyerChatInbox";
 import MyChats from "./pages/MyChats";
 import EditProfile from "./pages/EditProfile"; // 👈 ADD THIS
+import LegalNoticeGenerator from "./pages/LegalNoticeGenerator";
+import CaseStrategyPlanner from "./pages/CaseStrategyPlanner";
+import CostEstimator from "./pages/CostEstimator";
+import LawyerRecommendation from "./pages/LawyerRecommendation";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +61,10 @@ const App = () => (
           <Route path="/lawyer-chats" element={<PrivateRoute><LawyerChatInbox /></PrivateRoute>} />
           <Route path="/my-chats" element={<MyChats />} />
           <Route path="/edit-profile" element={<EditProfile />} /> {/* 👈 ADD THIS */}
+          <Route path="/legal-notice" element={<LegalNoticeGenerator />} />
+          <Route path="/case-strategy" element={<CaseStrategyPlanner />} />
+          <Route path="/cost-estimator" element={<CostEstimator />} />
+          <Route path="/lawyer-ai-match" element={<LawyerRecommendation />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

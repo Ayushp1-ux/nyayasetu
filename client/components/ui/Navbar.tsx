@@ -1,247 +1,338 @@
-import { useEffect, useState, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import LogoutButton from "./LogoutButton";
-import { Link as ScrollLink } from "react-scroll";
-import { Scale } from "lucide-react";
+import { Menu, X, User, LogOut, Scale } from "lucide-react";
 
 export default function Navbar() {
+  const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
-  const noNavRoutes = ["/login", "/signup"];
-
-  if (noNavRoutes.includes(location.pathname)) {
-    return null;
-  }
-
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [isLawyer, setIsLawyer] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
 
   useEffect(() => {
-    async function fetchUser() {
+    const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setUserEmail(user?.email ?? null);
+      
       if (user) {
-        const { data } = await supabase
+        setUser(user);
+        const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", user.id)
           .single();
-        setIsLawyer(data?.role === "lawyer");
+        setUserRole(profile?.role || null);
       }
-    }
-    fetchUser();
-
-    const saved = localStorage.getItem('savedNews');
-    if (saved) {
-      setSavedCount(JSON.parse(saved).length);
-    }
-
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-
-    const savedTheme = localStorage.getItem("theme");
-    if (
-      savedTheme === "dark" ||
-      (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    ) {
-      document.documentElement.classList.add("dark");
-      setIsDarkMode(true);
-    } else {
-      document.documentElement.classList.remove("dark");
-      setIsDarkMode(false);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const saved = localStorage.getItem('savedNews');
-      setSavedCount(saved ? JSON.parse(saved).length : 0);
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    getUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user || null);
+        if (session?.user) {
+          supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data }) => setUserRole(data?.role || null));
+        } else {
+          setUserRole(null);
+        }
+      }
+    );
+
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
-  const toggleDarkMode = () => {
-    if (document.documentElement.classList.contains("dark")) {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-      setIsDarkMode(false);
-    } else {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-      setIsDarkMode(true);
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
   };
 
+  const isActivePath = (path: string) => {
+    return location.pathname === path;
+  };
+
+  const publicLinks = [
+    { path: "/", label: "Home" },
+    { path: "/lawyers", label: "Find Lawyers" },
+    { path: "/court-news", label: "Court News" },
+    { path: "/case-search", label: "Case Search" },
+    { path: "/ai-assistant", label: "AI Assistant" },
+  ];
+
+  const userLinks = [
+    { path: "/my-questions", label: "My Questions" },
+    { path: "/ask-question", label: "Ask Question" },
+    { path: "/my-chats", label: "My Chats" },
+    { path: "/saved-news", label: "Saved News" },
+    { path: "/edit-profile", label: "Edit Profile" },
+  ];
+
+  const lawyerLinks = [
+    { path: "/lawyer", label: "Dashboard" },
+    { path: "/lawyer-chats", label: "Client Chats" },
+  ];
+
+  const toolLinks = [
+    { path: "/legal-notice", label: "Legal Notice" },
+    { path: "/case-strategy", label: "Case Strategy" },
+    { path: "/cost-estimator", label: "Cost Estimator" },
+    { path: "/lawyer-ai-match", label: "AI Lawyer Match" },
+  ];
+
   return (
-    <nav className="sticky top-0 left-0 w-full z-50 bg-white dark:bg-gray-900 backdrop-blur-sm shadow-sm px-6 py-3 flex items-center justify-between">
-      <Link to="/" className="flex items-center space-x-2">
-        <Scale className="h-8 w-8 text-primary dark:text-primary" />
-        <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">NyayaPath</span>
-      </Link>
+    <nav className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex items-center gap-2">
+              <Scale className="h-8 w-8 text-blue-600" />
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
+                NyayaPath
+              </span>
+            </Link>
+          </div>
 
-      <div className="hidden md:flex items-center space-x-8">
-        <ScrollLink
-          to="services"
-          smooth={true}
-          duration={500}
-          offset={-80}
-          className="cursor-pointer text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >
-          Services
-        </ScrollLink>
-        <ScrollLink
-          to="about"
-          smooth={true}
-          duration={500}
-          offset={-80}
-          className="cursor-pointer text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >
-          About
-        </ScrollLink>
-        <ScrollLink
-          to="contact"
-          smooth={true}
-          duration={500}
-          offset={-80}
-          className="cursor-pointer text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >
-          Contact
-        </ScrollLink>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-4">
+            {publicLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActivePath(link.path)
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
-        <Link
-          to="/court-news"
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >
-          📰 Latest Court News
-        </Link>
-        <Link
-          to="/case-search"
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
-        >
-          🔍 Case Search
-        </Link>
-        <Link
-          to="/lawyers"
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-semibold"
-        >
-          👨‍⚖️ Find Lawyers
-        </Link>
-        <Link
-          to="/saved-news"
-          className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-semibold"
-        >
-          📌 Saved ({savedCount})
-        </Link>
-      </div>
+            {user && (
+              <>
+                <div className="border-l border-gray-300 dark:border-gray-600 h-6 mx-2" />
+                {userRole === "lawyer" ? (
+                  <>
+                    {lawyerLinks.map((link) => (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          isActivePath(link.path)
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {userLinks.map((link) => (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          isActivePath(link.path)
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </>
+                )}
 
-      <div className="flex items-center space-x-4">
-        <Link
-          to="/ask-question"
-          className="text-primary font-semibold hover:underline dark:text-primary"
-        >
-          Ask a Legal Question
-        </Link>
+                <div className="border-l border-gray-300 dark:border-gray-600 h-6 mx-2" />
+                {toolLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActivePath(link.path)
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </>
+            )}
 
-        <button
-          onClick={toggleDarkMode}
-          aria-label="Toggle dark mode"
-          className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
-          type="button"
-        >
-          {isDarkMode ? "🌙" : "☀️"}
-        </button>
-
-        {userEmail ? (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              aria-label="User menu"
-              className="text-primary font-bold text-xl focus:outline-none focus:ring-2 focus:ring-primary"
-              type="button"
-            >
-              &#8942;
-            </button>
-
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-md z-50 divide-y divide-gray-200 dark:divide-gray-600">
-                <div className="px-4 py-2 text-gray-900 dark:text-gray-100 font-semibold truncate">
-                  {userEmail}
+            {!user ? (
+              <div className="flex items-center space-x-2">
+                <Link
+                  to="/login"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-md">
+                  <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {user.email?.split("@")[0]}
+                  </span>
+                  {userRole && (
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                      {userRole}
+                    </span>
+                  )}
                 </div>
-                <nav className="flex flex-col">
-                  {/* 👇 ADD EDIT PROFILE LINK HERE */}
-                  <Link
-                    to="/edit-profile"
-                    onClick={() => setDropdownOpen(false)}
-                    className="px-4 py-2 text-primary hover:bg-primary/10 dark:text-primary dark:hover:bg-primary/20"
-                  >
-                    ⚙️ Edit Profile
-                  </Link>
-                  
-                  <Link
-                    to="/my-questions"
-                    onClick={() => setDropdownOpen(false)}
-                    className="px-4 py-2 text-primary hover:bg-primary/10 dark:text-primary dark:hover:bg-primary/20"
-                  >
-                    My Legal Questions
-                  </Link>
-                  
-                  {!isLawyer && (
-                    <Link
-                      to="/my-chats"
-                      onClick={() => setDropdownOpen(false)}
-                      className="px-4 py-2 text-primary hover:bg-primary/10 dark:text-primary dark:hover:bg-primary/20"
-                    >
-                      💬 My Chats
-                    </Link>
-                  )}
-                  
-                  {isLawyer && (
-                    <Link
-                      to="/lawyer"
-                      onClick={() => setDropdownOpen(false)}
-                      className="px-4 py-2 text-primary hover:bg-primary/10 dark:text-primary dark:hover:bg-primary/20"
-                    >
-                      Lawyer Dashboard
-                    </Link>
-                  )}
-                  <div className="px-4 py-2">
-                    <LogoutButton />
-                  </div>
-                </nav>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>
-        ) : (
-          <>
-            <Link
-              to="/login"
-              className="text-primary font-semibold hover:underline dark:text-primary"
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              Login
-            </Link>
-            <Link
-              to="/signup"
-              className="text-primary font-semibold hover:underline dark:text-primary"
-            >
-              Sign Up
-            </Link>
-          </>
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {publicLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActivePath(link.path)
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {user && (
+                <>
+                  <div className="border-t border-gray-300 dark:border-gray-600 pt-2">
+                    {userRole === "lawyer"
+                      ? lawyerLinks.map((link) => (
+                          <Link
+                            key={link.path}
+                            to={link.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                              isActivePath(link.path)
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            {link.label}
+                          </Link>
+                        ))
+                      : userLinks.map((link) => (
+                          <Link
+                            key={link.path}
+                            to={link.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                              isActivePath(link.path)
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            {link.label}
+                          </Link>
+                        ))}
+                  </div>
+
+                  <div className="border-t border-gray-300 dark:border-gray-600 pt-2">
+                    {toolLinks.map((link) => (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                          isActivePath(link.path)
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {!user ? (
+                <div className="border-t border-gray-300 dark:border-gray-600 pt-2 space-y-1">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-md text-base font-medium bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              ) : (
+                <div className="border-t border-gray-300 dark:border-gray-600 pt-2">
+                  <div className="px-3 py-2 flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-md">
+                    <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {user.email?.split("@")[0]}
+                    </span>
+                    {userRole && (
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                        {userRole}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </nav>

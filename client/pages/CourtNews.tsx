@@ -29,6 +29,8 @@ export default function CourtNews() {
     "all" | "Criminal" | "Civil" | "Constitutional" | "Corporate" | "International"
   >("all");
   const [summaryItem, setSummaryItem] = useState<NewsItem | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const itemsPerPage = 5;
 
@@ -92,14 +94,42 @@ export default function CourtNews() {
       setLoading(true);
       setError(null);
 
-      const resp = await fetch("/api/court-news");
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
-      }
+      const apiKey = "afd017fb400f4bec9e317a0ec7f928d8";
 
-      const data = await resp.json();
-      const indiaJson = data.india;
-      const globalJson = data.global;
+      // 1) India‑focused legal news
+      const indiaUrl = new URL("https://newsapi.org/v2/everything");
+      indiaUrl.searchParams.set(
+        "q",
+        "(India OR Indian OR \"Supreme Court of India\" OR \"SC bench\" OR \"High Court\" OR PIL OR Delhi OR Mumbai OR Bengaluru OR Kolkata OR Chennai) " +
+          "AND (court OR judge OR judiciary OR legal OR verdict OR judgement OR petition OR trial OR case OR FIR OR chargesheet OR bail OR arrest)"
+      );
+      indiaUrl.searchParams.set("language", "en");
+      indiaUrl.searchParams.set("sortBy", "publishedAt");
+      indiaUrl.searchParams.set("pageSize", "40");
+      indiaUrl.searchParams.set("apiKey", apiKey);
+
+      // 2) Global legal / courts news
+      const globalUrl = new URL("https://newsapi.org/v2/everything");
+      globalUrl.searchParams.set(
+        "q",
+        "(\"supreme court\" OR \"high court\" OR constitutional court OR judiciary OR lawsuit OR litigation OR indictment OR verdict OR ruling OR judgement) " +
+          "AND (law OR legal OR court)"
+      );
+      globalUrl.searchParams.set("language", "en");
+      globalUrl.searchParams.set("sortBy", "publishedAt");
+      globalUrl.searchParams.set("pageSize", "40");
+      globalUrl.searchParams.set("apiKey", apiKey);
+
+      const [indiaResp, globalResp] = await Promise.all([
+        fetch(indiaUrl.toString()),
+        fetch(globalUrl.toString()),
+      ]);
+
+      if (!indiaResp.ok) throw new Error(`India HTTP ${indiaResp.status}`);
+      if (!globalResp.ok) throw new Error(`Global HTTP ${globalResp.status}`);
+
+      const indiaJson = await indiaResp.json();
+      const globalJson = await globalResp.json();
 
       const mapArticles = (articles: any[]): NewsItem[] =>
         (articles || []).map((a: any, idx: number) => {
@@ -108,7 +138,7 @@ export default function CourtNews() {
           return {
             id:
               a.url ||
-              String(idx) + Math.random().toString(36).slice(2),
+              String(idx) + Math.random().toString(36).slice(2), // avoid collisions
             title,
             content,
             date: a.publishedAt ?? new Date().toISOString(),
@@ -117,9 +147,10 @@ export default function CourtNews() {
           };
         });
 
-      const indiaNews = mapArticles(indiaJson?.articles || []);
-      const globalNews = mapArticles(globalJson?.articles || []);
+      const indiaNews = mapArticles(indiaJson.articles || []);
+      const globalNews = mapArticles(globalJson.articles || []);
 
+      // India first, then global, de‑duplicate by id
       const combinedMap = new Map<string, NewsItem>();
       for (const item of [...indiaNews, ...globalNews]) {
         if (!combinedMap.has(item.id)) {
@@ -137,15 +168,44 @@ export default function CourtNews() {
       setLoading(false);
     }
   }
+  async function handleSummary(item: NewsItem) {
+    setSummaryItem(item);
+    setAiSummary(null);
+    setSummaryLoading(true);
+  
+    try {
+      const res = await fetch(
+        "https://wutkiwsapywuxdirpngh.supabase.co/functions/v1/openrouter-chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "summary",
+            content: item.title + "\n\n" + item.content,
+          }),
+        }
+      );
+  
+      const data = await res.json();
+      setAiSummary(data.answer);
+    } catch (err) {
+      console.error(err);
+      setAiSummary("Failed to generate summary.");
+    }
+  
+    setSummaryLoading(false);
+  }
 
   // Recompute filteredNews whenever data / search / tagFilter changes
   useEffect(() => {
     let data = [...allNews];
 
+    // Tag filter
     if (tagFilter !== "all") {
       data = data.filter((item) => item.tag === tagFilter);
     }
 
+    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(
@@ -310,7 +370,7 @@ export default function CourtNews() {
                     </a>
                   )}
                   <button
-                    onClick={() => setSummaryItem(item)}
+                    onClick={() => handleSummary(item)}
                     className="text-sm text-blue-500 hover:text-blue-600 font-medium"
                   >
                     View legal summary
@@ -401,28 +461,17 @@ export default function CourtNews() {
               Based on: {summaryItem.title}
             </p>
 
-            <ul className="list-disc list-inside space-y-2 text-sm text-gray-800 dark:text-gray-200">
-              <li>
-                <span className="font-semibold">Core update:</span>{" "}
-                {summaryItem.content || "Short legal news update."}
-              </li>
-              <li>
-                <span className="font-semibold">Likely legal area:</span>{" "}
-                {summaryItem.tag || "General law"}
-              </li>
-              <li>
-                <span className="font-semibold">Why it matters:</span>{" "}
-                {summaryItem.tag === "Criminal"
-                  ? "Shows current trends in criminal prosecutions, bail, and investigation practice."
-                  : summaryItem.tag === "Constitutional"
-                  ? "Impacts interpretation of fundamental rights and constitutional structure."
-                  : summaryItem.tag === "Corporate"
-                  ? "Affects companies, regulators, and tax/insolvency practice."
-                  : summaryItem.tag === "International"
-                  ? "Highlights developments in international courts and cross‑border law."
-                  : "Contributes to ongoing court practice and evolving case law."}
-              </li>
-            </ul>
+            {summaryLoading && (
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+    Generating AI summary...
+  </p>
+)}
+
+            {aiSummary && (
+              <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">
+                {aiSummary}
+              </div>
+            )}
 
             {summaryItem.link && (
               <a
